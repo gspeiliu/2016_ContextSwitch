@@ -90,6 +90,7 @@ namespace klee {
 			friend class PSOListener;
 			friend class SymbolicListener;
 			friend class TaintListener;
+			friend class InputGenListener;
 //			friend class CondManager;
 
 		public:
@@ -205,6 +206,23 @@ namespace klee {
 			bool isFinished; // whether the verification is finished
 
 			Prefix* prefix; // prefix used to guide execution
+
+			typedef struct binTree {
+				binTree():next(0), size(0), isSwitch(0),brTrue(0), currEvent(NULL) {}
+				std::vector<ref<Expr> > vecExpr;
+				ref<Expr> switchValue;
+				struct binTree * next;
+				unsigned size;
+				bool isSwitch;
+				bool brTrue;
+				Event* currEvent;
+			}BinTree;
+			BinTree * headSentinel;
+			BinTree * currTreeNode;
+
+			std::set<ref<Expr> > argvSymbolics;
+			std::set<ref<Expr> > intArgvConstraints;
+			std::map<std::string, char> charInfo;
 
 			unsigned executionNum; // total number of execution
 
@@ -500,6 +518,8 @@ namespace klee {
 			void printInstrcution(ExecutionState &state, KInstruction* ki);
 
 			void printPrefix();
+
+			void freeBinTree(Executor::BinTree *head);
 	};
 
 } // End klee namespace

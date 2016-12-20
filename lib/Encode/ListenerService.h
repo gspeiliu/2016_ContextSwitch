@@ -55,6 +55,9 @@ namespace klee {
 
 			void ContextSwitch(Executor* executor, ExecutionState &state);
 
+			bool getMPFromFile();
+			void changeInputAndPrefix(int argc, char** argv, Executor* executor);
+
 	};
 
 }

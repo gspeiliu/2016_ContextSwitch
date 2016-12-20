@@ -49,7 +49,26 @@ class RuntimeDataManager {
 		double DTAMhybridCost;
 		double PTSCost;
 
+		int DUInSameThread;
+		int DUInDiffThread;
+		int DUFromInit;
 
+
+		std::set<std::pair<int, int> > DUPair;
+		std::set<std::pair<int, int> > ReadFromInit;
+		std::set<std::pair<int, int> > sameThreadDUSet;
+		std::set<std::pair<int, int> > diffThreadDUSet;
+
+
+		std::map<std::string, unsigned> intArgv;
+		std::list<std::pair<Prefix*, std::vector<std::string> > > charInputPrefixSet;
+		std::list<std::pair<Prefix*, std::map<std::string, unsigned> > > intInputPrefixSet;
+		std::map<std::string, std::set<std::string> > MPMS;
+
+		char **argvOfMain;
+		int argcOfMain;
+		unsigned allMPSet;
+		std::set<std::string> inputVarSet;
 
 		std::vector<double> allDTAMCost;
 		std::vector<double> allDTAMSerialCost;
@@ -87,6 +106,16 @@ class RuntimeDataManager {
 		bool isCurrentTraceUntested();
 		void printAllPrefix(std::ostream &out);
 		void printAllTrace(std::ostream &out);
+
+		void addcharInputPrefixSet(Prefix*, std::vector<std::string>);
+		void addintInputPrefixSet(Prefix*, std::map<std::string, unsigned>);
+		std::pair<Prefix*, std::vector<std::string> > getNextCharInputPrefix();
+		std::pair<Prefix*, std::map<std::string, unsigned> > getNextIntInputPrefix();
+
+		void getExplicitDU();
+
+		bool isCurrentTraceUntestedForDU();
+		bool isMPCouldConstructed(std::string str);
 
 };
 

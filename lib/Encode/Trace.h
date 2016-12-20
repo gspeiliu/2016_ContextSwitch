@@ -90,6 +90,8 @@ namespace klee {
 			std::set<std::string> DTAMParallelMap;
 			std::set<std::string> DTAMhybridMap;
 
+			std::vector<std::string> sequentialBBOnceExe;
+
 			Trace();
 
 			virtual ~Trace();

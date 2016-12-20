@@ -220,7 +220,7 @@ Executor::Executor(const InterpreterOptions &opts, InterpreterHandler *ih) :
 				0), atMemoryLimit(false), inhibitForking(false), haltExecution(false), ivcEnabled(false), coreSolverTimeout(
 				MaxCoreSolverTime != 0 && MaxInstructionTime != 0 ?
 						std::min(MaxCoreSolverTime, MaxInstructionTime) : std::max(MaxCoreSolverTime, MaxInstructionTime)), debugInstFile(
-				0), debugLogBuffer(debugBufferString), isFinished(false), prefix(NULL), executionNum(0), execStatus(SUCCESS) {
+				0), debugLogBuffer(debugBufferString), isFinished(false), prefix(NULL), headSentinel(NULL), currTreeNode(NULL), executionNum(0), execStatus(SUCCESS) {
 
 	if (coreSolverTimeout)
 		UseForkedCoreSolver = true;
@@ -3678,9 +3678,11 @@ bool Executor::isFunctionSpecial(Function* f) {
 }
 
 void Executor::runVerification(llvm::Function *f, int argc, char **argv, char **envp) {
+	listenerService->getMPFromFile();
 	while (!isFinished) {
 		execStatus = SUCCESS;
 		listenerService->startControl(this);
+		listenerService->changeInputAndPrefix(argc, argv, this);
 		runFunctionAsMain(f, argc, argv, envp);
 		listenerService->endControl(this);
 		prepareNextExecution();
@@ -3698,15 +3700,34 @@ void Executor::getNewPrefix() {
 	//获取新的前缀
 	Prefix* prefix = listenerService->getRuntimeDataManager()->getNextPrefix();
 	//Prefix* prefix = NULL;
-	if (prefix) {
-		delete this->prefix;
-		this->prefix = prefix;
-		isFinished = false;
-	} else {
+	if (executionNum > 4000) {
 		isFinished = true;
+		int prefixSize = listenerService->getRuntimeDataManager()->charInputPrefixSet.size();
+
+		while (prefixSize >= 0) {
+			if (prefix) {
+				delete prefix;
+				prefix = NULL;
+			}
+			prefix = listenerService->getRuntimeDataManager()->getNextPrefix();
+			prefixSize--;
+		}
+	} else {
+		if (prefix) {
+			delete this->prefix;
+			this->prefix = prefix;
+			isFinished = false;
+		} else {
+			if (listenerService->getRuntimeDataManager()->charInputPrefixSet.size() == 0) {
+				isFinished = true;
+			} else {
+				this->prefix = NULL;
+				isFinished = false;
+			}
 #if PRINT_RUNTIMEINFO
-		printPrefix();
+	printPrefix();
 #endif
+		}
 	}
 }
 
@@ -4211,6 +4232,14 @@ void Executor::createSpecialElement(ExecutionState& state, Type* type, uint64_t&
 //			assert(0 && "unsupport initializer type");
 		}
 
+	}
+}
+
+void Executor::freeBinTree(BinTree* head) {
+	if (head) {
+		freeBinTree(head->next);
+		delete head;
+		head = NULL;
 	}
 }
 

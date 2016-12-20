@@ -16,7 +16,7 @@
 #include "Prefix.h"
 #include "PSOListener.h"
 #include "SymbolicListener.h"
-#include "TaintListener.h"
+#include "InputGenListener.h"
 #include "../Core/ExternalDispatcher.h"
 #include "../Thread/StackType.h"
 
@@ -28,6 +28,7 @@
 #include <stddef.h>
 #include <sys/time.h>
 #include <iterator>
+#include <fstream>
 
 namespace klee {
 
@@ -587,6 +588,8 @@ namespace klee {
 //		pushListener(Symboliclistener);
 //		BitcodeListener* Taintlistener = new TaintListener(executor, &rdManager);
 //		pushListener(Taintlistener);
+		BitcodeListener* InputListener = new InputGenListener(executor, &rdManager);
+		pushListener(InputListener);
 
 		unsigned traceNum = executor->executionNum;
 		llvm::errs() << "\n";
@@ -595,7 +598,10 @@ namespace klee {
 		if (traceNum == 1) {
 			llvm::errs() << " 初始执行" << "\n";
 		} else {
-			llvm::errs() << " 前缀执行,前缀文件为prefix" << executor->prefix->getName() << ".txt" << "\n";
+			if (executor->prefix != NULL)
+				llvm::errs() << " 前缀执行,前缀文件为prefix" << executor->prefix->getName() << ".txt" << "\n";
+			else
+				llvm::errs() << "生成的新输入.txt\n";
 		}
 		llvm::errs() << "************************************************************************\n";
 		llvm::errs() << "\n";
@@ -620,9 +626,11 @@ namespace klee {
 		} else if (!rdManager.isCurrentTraceUntested()) {
 			rdManager.getCurrentTrace()->traceType = Trace::REDUNDANT;
 			llvm::errs() << "\n######################本条路径为旧路径####################\n";
+			rdManager.getExplicitDU();
 		} else {
 			llvm::errs() << "\n######################本条路径为新路径####################\n";
 			rdManager.getCurrentTrace()->traceType = Trace::UNIQUE;
+			rdManager.getExplicitDU();
 //			Trace* trace = rdManager.getCurrentTrace();
 
 //			unsigned allGlobal = 0;
@@ -697,6 +705,13 @@ namespace klee {
 		std::list<Thread*> queue = state.getQueue();
 		KInstruction *ki = thread->pc;
 
+		std::vector<std::string> vecArgs;
+		int tt = 1;
+
+		while (tt < rdManager.argcOfMain) {
+			vecArgs.push_back(std::string(rdManager.argvOfMain[tt++]));
+		}
+
 //		llvm::errs() << "ContextSwitch thread id : " << thread->threadId << "  ";
 //		ki->inst->dump();
 
@@ -722,6 +737,10 @@ namespace klee {
 							Prefix* prefix = new Prefix(path, trace->createThreadPoint, ss.str(), state.ContextSwitch + 1);
 //							llvm::errs() << "rdManager.addScheduleSet(prefix) state.ContextSwitch + 1　:　" << ss.str() << "\n";
 							rdManager.addScheduleSet(prefix);
+
+
+							rdManager.addcharInputPrefixSet(prefix, vecArgs);
+							rdManager.addintInputPrefixSet(prefix, rdManager.intArgv);
 							path.pop_back();
 						}
 					}
@@ -747,6 +766,10 @@ namespace klee {
 							Prefix* prefix = new Prefix(path, trace->createThreadPoint, ss.str(), state.ContextSwitch);
 //							llvm::errs() << "rdManager.addScheduleSet(prefix) state.ContextSwitch　:　" << ss.str() << "\n";
 							rdManager.addScheduleSet(prefix);
+
+
+							rdManager.addcharInputPrefixSet(prefix, vecArgs);
+							rdManager.addintInputPrefixSet(prefix, rdManager.intArgv);
 							path.pop_back();
 						}
 					}
@@ -761,6 +784,87 @@ namespace klee {
 		if(state.isGlobal){
 			state.isGlobal = false;
 		}
+	}
+
+	bool ListenerService::getMPFromFile() {
+		int num = 0;
+
+		std::ifstream fin("/home/icefox/MP.txt");
+		if (!fin.is_open()) {
+			std::cout << "Error opening file" << std::endl;
+			exit(1);
+		}
+		std::string fullBBName1, fullBBName2;
+		while (!fin.eof()) {
+			fin >> fullBBName1;
+			fin >> fullBBName2;
+			rdManager.MPMS[fullBBName1].insert(fullBBName2);
+			rdManager.MPMS[fullBBName2].insert(fullBBName1);
+		}
+
+		fin.close();
+
+		for (std::map<std::string, std::set<std::string> >::iterator it =
+				rdManager.MPMS.begin(), ie = rdManager.MPMS.end(); it != ie; it++) {
+			num += it->second.size();
+//			std::cerr << it->first << std::endl;
+//			for (std::set<std::string>::iterator innerIt = it->second.begin(),
+//					innerIe = it->second.end(); innerIt != innerIe; innerIt++) {
+//				std::cerr << "        " << *innerIt << std::endl;
+//			}
+		}
+		rdManager.allMPSet = num;
+		return true;
+	}
+
+	void ListenerService::changeInputAndPrefix(int argc, char** argv, Executor* executor) {
+		if (executor->executionNum > 1) {
+			std::pair<Prefix*, std::vector<std::string> > pairPV =
+					rdManager.getNextCharInputPrefix();
+			std::pair<Prefix*, std::map<std::string, unsigned> > pairPM =
+					rdManager.getNextIntInputPrefix();
+//			if (executor->prefix == NULL) {
+//				std::cerr << "executor prefix : NULL\n";
+//			} else {
+//				std::cerr << "executor prefix: " << executor->prefix << std::endl;
+//			}
+//			if (pairPV.first == NULL) {
+//				std::cerr << "pairPV prefix : NULL\n";
+//			} else {
+//				std::cerr << "pairPV prefix: " << pairPV.first << std::endl;
+//			}
+//			if (pairPM.first == NULL) {
+//				std::cerr << "pairPM prefix : NULL\n";
+//			} else {
+//				std::cerr << "pairPM prefix: " << pairPM.first << std::endl;
+//			}
+			assert(((executor->prefix == pairPV.first) && (executor->prefix == pairPM.first)) &&
+					"these prefix are not the same, so there is something wrong!\n");
+			int i = 1;
+			unsigned int vecSize = pairPV.second.size();
+			std::vector<std::string>& temp = pairPV.second;
+			for (unsigned j = 0; j < vecSize; j++) {
+				unsigned t = 0;
+				for (; t < temp[j].size(); t++) {
+					argv[i][t] = temp[j][t];
+				}
+				argv[i++][t] = '\0';
+			}
+			rdManager.intArgv.clear();
+			rdManager.intArgv.insert(pairPM.second.begin(), pairPM.second.end());
+//			std::cerr << "change input prefix\n";
+			for (std::map<std::string, unsigned>::iterator intIt = pairPM.second.begin(),
+					intIe = pairPM.second.end(); intIt != intIe; intIt++) {
+				std::cerr << intIt->first << " : " << intIt->second << std::endl;
+			}
+		}
+		rdManager.argvOfMain = argv;
+		rdManager.argcOfMain = argc;
+
+		if (executor->headSentinel != NULL)
+			executor->freeBinTree(executor->headSentinel);
+		executor->headSentinel = NULL;
+		executor->intArgvConstraints.clear();
 	}
 
 }

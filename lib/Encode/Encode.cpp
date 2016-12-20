@@ -2073,5 +2073,50 @@ namespace klee {
 		return res;
 	}
 
+
+	void Encode::deleteMPFromThisExe() {
+		std::vector<std::string>::iterator vecIt =
+				trace->sequentialBBOnceExe.begin(), vecItEnd = trace->sequentialBBOnceExe.end();
+
+//		std::cerr << "all the sequence of the bbfullName\n";
+//		for (std::vector<std::string>::iterator forIt =
+//				trace->sequentialBBOnceExe.begin(), forIe = trace->sequentialBBOnceExe.end();
+//				forIt != forIe; forIt++) {
+//			std::cerr << (*forIt) << std::endl;
+//		}
+
+		for (; vecIt != vecItEnd; vecIt++) {
+			for (std::vector<std::string>::iterator secVecIt =
+					vecIt + 1; secVecIt != vecItEnd; secVecIt++) {
+				std::map<std::string, std::set<std::string> >::iterator it =
+						runtimeData->MPMS.find(*vecIt);
+
+				if (it != runtimeData->MPMS.end()) {
+					std::set<std::string>::iterator innerIt = it->second.find(*secVecIt);
+					if (innerIt != it->second.end()) {
+						if (it->second.size() == 1) {
+							runtimeData->MPMS.erase(it);
+						} else {
+							it->second.erase(innerIt);
+						}
+					}
+				}
+				std::map<std::string, std::set<std::string> >::iterator secIt =
+														runtimeData->MPMS.find(*secVecIt);
+
+				if (secIt != runtimeData->MPMS.end()) {
+					std::set<std::string>::iterator innerIt = secIt->second.find(*vecIt);
+					if (innerIt != secIt->second.end()) {
+						if (secIt->second.size() == 1) {
+							runtimeData->MPMS.erase(secIt);
+						} else {
+							secIt->second.erase(innerIt);
+						}
+					}
+				}
+			}
+		}
+	}
+
 }
 

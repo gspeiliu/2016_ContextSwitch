@@ -81,6 +81,8 @@ private:
 
 	expr buildExprForConstantValue(Value *V, bool isLeft, string prefix);
 
+	void deleteMPFromThisExe();
+
 private:
 	void markLatestWriteForGlobalVar();
 

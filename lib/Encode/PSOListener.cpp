@@ -75,6 +75,18 @@ namespace klee {
 		Event* item = NULL;
 		KModule* kmodule = executor->kmodule;
 
+		std::string bbFullName = inst->getParent()->getParent()->getName().str() +
+				"." + inst->getParent()->getName().str();
+
+		if (rdManager->isMPCouldConstructed(bbFullName)) {
+			if (trace->sequentialBBOnceExe.size() == 0)
+				trace->sequentialBBOnceExe.push_back(bbFullName);
+			else {
+				if (trace->sequentialBBOnceExe[trace->sequentialBBOnceExe.size() - 1] != bbFullName)
+					trace->sequentialBBOnceExe.push_back(bbFullName);
+			}
+		}
+
 //		llvm::errs() << "PSO thread id : " << thread->threadId;
 //		inst->dump();
 
@@ -282,8 +294,64 @@ namespace klee {
 					}
 				} else if (kmodule->internalFunctions.find(f) != kmodule->internalFunctions.end()) {
 					item->eventType = Event::IGNORE;
-				}
+				} else
 				//llvm::errs() << item->calledFunction->getName().str() << " " << item->isUserDefinedFunction << "\n";
+				if (f->getName().str() == "make_input") {
+						if (executor->executionNum == 1) {
+								//insert to the map of intArgv.
+								unsigned argsNum = inst->getNumOperands();
+								for (unsigned i = 0; i < (argsNum - 1); i++) {
+									ref<Expr> address = executor->eval(ki, i + 1, state).value;
+				//					std::cerr << " execution num address : " << address->getWidth() << std::endl;
+									std::string varName = inst->getOperand(i)->getName().str();
+									std::cerr << "input var set: " << varName << std::endl;
+									rdManager->inputVarSet.insert(varName);
+				//					std::cerr << "make_input width = " << width << std::endl;
+									ObjectPair op;
+									bool success = executor->getMemoryObject(op, state, &state.addressSpace, address);
+									if (success) {
+										const ObjectState *os = op.second;
+										ref<Expr> offset = op.first->getOffsetExpr(address);
+										ref<Expr> exprValue = os->read(offset, sizeof(int) * 8);
+										if (ConstantExpr *ce = dyn_cast<ConstantExpr>(exprValue)) {
+											unsigned intValue = ce->getZExtValue();
+				//							std::cerr << "int value : " << intValue << std::endl;
+											rdManager->intArgv.insert(make_pair(varName, intValue));
+										} else {
+											assert(0 && "the value in int argv is not a integer value(if).\n");
+										}
+									} else {
+										assert(0 && "cannot get the corresponding op in PSOListener.\n");
+									}
+								}
+							} else {
+								//change the value of int argvs in on the running on three listener.
+								unsigned argsNum = inst->getNumOperands();
+								for (unsigned i = 0; i < (argsNum - 1); i++) {
+									ref<Expr> address = executor->eval(ki, i + 1, state).value;
+									std::string varName = inst->getOperand(i)->getName().str();
+									std::map<std::string, unsigned>::iterator it =
+											rdManager->intArgv.find(varName);
+									if (it == rdManager->intArgv.end()) {
+										assert(0 && "cannot find the real value "
+												"in the  runtime data manager intArgv.\n");
+									}
+									std::cerr << "varName : " << it->first << " " << it->second << std::endl;
+									ObjectPair op;
+									bool success = executor->getMemoryObject(op, state, &state.addressSpace, address);
+									if (success) {
+											const ObjectState *os = op.second;
+											const MemoryObject *mo = op.first;
+											ObjectState *wos = state.addressSpace.getWriteable(mo, os);
+											ref<Expr> offset = mo->getOffsetExpr(address);
+											ref<Expr> realExpr = ConstantExpr::create(it->second, sizeof(int) * 8);
+											wos->write(offset, realExpr);
+									} else {
+										assert(0 && "cannot get the corresponding op in PSOListener(else).\n");
+									}
+								}
+							}
+						}
 				break;
 			}
 

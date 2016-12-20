@@ -8,6 +8,7 @@
 #include "RuntimeDataManager.h"
 
 #include <llvm/Support/raw_ostream.h>
+#include "llvm/IR/Instructions.h"
 #include <iterator>
 #include <map>
 #include <sstream>
@@ -42,6 +43,14 @@ namespace klee {
 		DTAMParallelCost = 0;
 		DTAMhybridCost = 0;
 		PTSCost = 0;
+
+		DUInSameThread = 0;
+		DUInDiffThread = 0;
+		DUFromInit = 0;
+
+		argvOfMain = NULL;
+		argcOfMain = 0;
+		allMPSet = 0;
 
 		system("rm -rf ./output_info");
 		system("mkdir ./output_info");
@@ -136,6 +145,10 @@ namespace klee {
 
 		}
 
+		ss << "DUInSameThread:" << DUInSameThread << "\n";
+		ss << "DUInDiffThread:" << DUInDiffThread << "\n";
+		ss << "DUFromInit:" << DUFromInit << "\n";
+
 		ss << "\n";
 
 		out_to_file << ss.str();
@@ -218,6 +231,105 @@ namespace klee {
 				num++;
 			}
 		}
+	}
+
+	void RuntimeDataManager::getExplicitDU() {
+		vector<Event*>& path = getCurrentTrace()->path;
+		std::set<Event*> readSet;
+		int pathSize = path.size();
+
+		for (int i = pathSize - 1; i >= 0; i--) {
+			if (path[i]->isGlobal) {
+				Instruction* I = path[i]->inst->inst;
+				if (LoadInst::classof(I)) {
+					readSet.insert(path[i]);
+				} else if (StoreInst::classof(I)) {
+					std::set<Event*>::iterator it = readSet.begin();
+
+					for (; it != readSet.end();) {
+						if (path[i]->name == (*it)->name) {
+							int asRdLine = (*it)->inst->info->assemblyLine;
+							int asWrtLine = path[i]->inst->info->assemblyLine;
+							std::pair<int, int> P(asWrtLine, asRdLine);
+//							if (DUPair.find(P) == DUPair.end()) {
+//								DUPair.insert(P);
+								if (path[i]->threadId != (*it)->threadId &&
+										diffThreadDUSet.find(P) == diffThreadDUSet.end()) {
+									diffThreadDUSet.insert(P);
+									DUInDiffThread++;
+								} else if (path[i]->threadId == (*it)->threadId &&
+										sameThreadDUSet.find(P) == sameThreadDUSet.end()){
+									sameThreadDUSet.insert(P);
+									DUInSameThread++;
+								}
+//							}
+							readSet.erase(it++);
+						} else {
+							it++;
+						}
+					}
+				}
+			}
+		}
+
+		for (std::set<Event*>::iterator it = readSet.begin(),
+				ie = readSet.end(); it != ie; it++) {
+			int asRdLine = (*it)->inst->info->assemblyLine;
+			std::pair<int, int> P(-1, asRdLine);
+
+			if (ReadFromInit.find(P) == ReadFromInit.end()) {
+				ReadFromInit.insert(P);
+				DUFromInit++;
+			}
+		}
+	}
+
+	void RuntimeDataManager::addcharInputPrefixSet(
+			Prefix* prefix, std::vector<std::string> vecStr) {
+		charInputPrefixSet.push_back(std::make_pair(prefix, vecStr));
+	}
+
+	void RuntimeDataManager::addintInputPrefixSet(
+			Prefix* prefix, std::map<std::string, unsigned> mapOfStrInt) {
+		intInputPrefixSet.push_back(std::make_pair(prefix, mapOfStrInt));
+	}
+
+	std::pair<Prefix*, std::map<std::string, unsigned> > RuntimeDataManager::getNextIntInputPrefix() {
+			std::pair<Prefix*, std::map<std::string, unsigned> > temp =
+					intInputPrefixSet.front();
+			intInputPrefixSet.pop_front();
+
+			return temp;
+	}
+
+	std::pair<Prefix*, std::vector<std::string> > RuntimeDataManager::getNextCharInputPrefix() {
+			std::pair<Prefix*, std::vector<std::string> > temp =
+					charInputPrefixSet.front();
+			charInputPrefixSet.pop_front();
+
+			return temp;
+	}
+
+	bool RuntimeDataManager::isCurrentTraceUntestedForDU() {
+		bool result = true;
+		for (set<Trace*>::iterator ti = testedTraceList.begin(), te = testedTraceList.end(); ti != te; ti++) {
+			if (currentTrace->isEqual(*ti)) {
+				result = false;
+				break;
+			}
+		}
+
+		return result;
+	}
+
+	bool RuntimeDataManager::isMPCouldConstructed(std::string str) {
+		bool couldConstructed = false;
+
+		std::map<std::string, std::set<std::string> >::iterator it = MPMS.find(str);
+		if (it != MPMS.end())
+			couldConstructed = true;
+
+		return couldConstructed;
 	}
 
 }
