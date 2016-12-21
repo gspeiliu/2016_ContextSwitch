@@ -29,23 +29,27 @@ using namespace llvm;
 namespace klee {
 
 	Trace::Trace() :
-			Id(0), nextEventId(0), eventList(20), isUntested(true) {
+			Id(0), nextEventId(0), eventList(20), isUntested(true), traceType(UNIQUE),unique(0) {
 
 	}
 
 	Trace::~Trace() {
 		for (vector<Event*>::iterator ti = path.begin(), te = path.end(); ti != te; ti++) {
-			delete *ti;
+			delete (*ti);
 		}
 		for (map<string, vector<LockPair *> >::iterator li = all_lock_unlock.begin(), le = all_lock_unlock.end(); li != le; li++) {
 			for (vector<LockPair *>::iterator ei = li->second.begin(), ee = li->second.end(); ei != ee; ei++) {
-				delete *ei;
+				delete (*ei);
 			}
 		}
 		for (map<string, vector<Wait_Lock *> >::iterator wi = all_wait.begin(), we = all_wait.end(); wi != we; wi++) {
 			for (vector<Wait_Lock *>::iterator ei = wi->second.begin(), ee = wi->second.end(); ei != ee; ei++) {
-				delete *ei;
+				delete (*ei);
 			}
+		}
+		for (vector<vector<Event*>*>::iterator evi = eventList.begin(), eve =
+				eventList.end(); evi != eve; evi++) {
+			delete (*evi);
 		}
 //overlook some event, alloca event only exist in trace!
 //	for (vector<vector<Event*>*>::iterator evi = eventList.begin(), eve =
@@ -244,8 +248,10 @@ namespace klee {
 	void Trace::insertThreadCreateOrJoin(pair<Event*, uint64_t> item, bool isThreadCreate) {
 		if (isThreadCreate) {
 			createThreadPoint.insert(item);
+			unique2Crt[unique] = item.second;
 		} else {
 			joinThreadPoint.insert(item);
+			unique2Join[unique] = item.second;
 		}
 	}
 
@@ -365,6 +371,7 @@ namespace klee {
 
 	void Trace::insertPath(Event* event) {
 		path.push_back(event);
+		unique2Tid.push_back(std::make_pair(++unique, event->threadId));
 	}
 
 //void Trace::insertArgc(int argc) {

@@ -196,8 +196,8 @@ WaitParam* GuidedCondScheduler::selectNextItem() {
 		unsigned lastThreadId = 0;
 		unsigned threadId = 0;
 		WaitParam* result = NULL;
-		for (Prefix::EventIterator ei = prefix->current(), ee = prefix->end(); ei != ee; ei++) {
-			threadId = (*ei)->threadId;
+		for (Prefix::Unique2TidIterator ei = prefix->current(), ee = prefix->end(); ei != ee; ei++) {
+			threadId = ei->second;
 			if (threadId == lastThreadId) {
 				continue;
 			} else {

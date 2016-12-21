@@ -27,8 +27,14 @@ namespace klee {
 		position = this->eventList.begin();
 	}
 
+	Prefix::Prefix(std::vector<std::pair<unsigned, unsigned> >& tidList,
+			std::map<unsigned, unsigned>& crtPoint, std::string name, int ContextSwitch) :
+		unique2Tid(tidList), unique2Crt(crtPoint), name(name), ContextSwitch(ContextSwitch) {
+		pos = this->unique2Tid.begin();
+	}
 	void Prefix::reuse() {
 		position = this->eventList.begin();
+		pos = this->unique2Tid.begin();
 	}
 
 	Prefix::~Prefix() {
@@ -42,36 +48,42 @@ namespace klee {
 	void Prefix::increasePosition() {
 		if (!isFinished()) {
 			position++;
+			pos++;
 		}
 	}
 
 	bool Prefix::isFinished() {
-		return position == eventList.end();
+//		return position == eventList.end();
+		return pos == unique2Tid.end();
 	}
 
-	Prefix::EventIterator Prefix::begin() {
-		return eventList.begin();
+	Prefix::Unique2TidIterator Prefix::begin() {
+//		return eventList.begin();
+		return unique2Tid.begin();
 	}
 
-	Prefix::EventIterator Prefix::end() {
-		return eventList.end();
+	Prefix::Unique2TidIterator Prefix::end() {
+//		return eventList.end();
+		return unique2Tid.end();
 	}
 
-	Prefix::EventIterator Prefix::current() {
-		return Prefix::EventIterator(position);
+	Prefix::Unique2TidIterator Prefix::current() {
+		return Prefix::Unique2TidIterator(pos);
 	}
 
 	uint64_t Prefix::getNextThreadId() {
 		assert(!isFinished());
-		Event* event = *position;
-		map<Event*, uint64_t>::iterator ti = threadIdMap.find(event);
-		return ti->second;
+//		Event* event = *position;
+//		map<Event*, uint64_t>::iterator ti = threadIdMap.find(event);
+//		return ti->second;
+		return unique2Crt[pos->first];
 	}
 
 	unsigned Prefix::getCurrentEventThreadId() {
 		assert(!isFinished());
-		Event* event = *position;
-		return event->threadId;
+//		Event* event = *position;
+//		return event->threadId;
+		return pos->second;
 	}
 
 	void Prefix::print(ostream &out) {

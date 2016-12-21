@@ -54,6 +54,9 @@ namespace klee {
 			std::vector<Event*> path; // original execution trace
 			bool isUntested; // whether this trace is a untested trace
 			TraceType traceType; //the type of trace
+			int unique;
+
+			std::vector<std::pair<unsigned, unsigned> > unique2Tid;
 
 			//by hy 2015.7.21
 			std::vector<ref<klee::Expr> > storeSymbolicExpr;
@@ -138,6 +141,9 @@ namespace klee {
 			//线程创建与终止操作数据-->生成偏序约束
 			std::map<Event*, uint64_t> createThreadPoint; //key--event, value--created thread id
 			std::map<Event*, uint64_t> joinThreadPoint; //key--event, value--joined thread id
+
+			std::map<unsigned, unsigned> unique2Crt;
+			std::map<unsigned, unsigned> unique2Join;
 
 			//全局变量读写操作数据-->生成读写关系约束
 			std::map<std::string, std::vector<Event *> > allReadSet;

@@ -2567,6 +2567,7 @@ void Executor::run(ExecutionState &initialState) {
 	initTimers();
 
 	states.insert(&initialState);
+	std::cerr << "states size = " << states.size() << std::endl;
 
 	if (usingSeeds) {
 		std::vector<SeedInfo> &v = seedMap[&initialState];
@@ -2716,7 +2717,7 @@ void Executor::run(ExecutionState &initialState) {
 		listenerService->ContextSwitch(this, state);
 
 		KInstruction *ki = thread->pc;
-		if (prefix && !prefix->isFinished() && ki != prefix->getCurrentInst()) {
+		/*if (prefix && !prefix->isFinished() && ki != prefix->getCurrentInst()) {
 			//cerr << "prefix: " << prefix->getCurrentInst() << " " << prefix->getCurrentInst()->inst->getOpcodeName() << " reality: " << ki << " " << ki->inst->getOpcodeName() << endl;
 			llvm::errs() << "thread id : " << thread->threadId << "\n";
 			llvm::errs() << "real : ";
@@ -2730,7 +2731,7 @@ void Executor::run(ExecutionState &initialState) {
 			terminateState(state);
 			break;
 			//assert(0 && "prefix unmatched");
-		}
+		}*/
 		stepInstruction(state);
 
 		listenerService->beforeExecuteInstruction(this, state, ki);
@@ -3694,6 +3695,14 @@ void Executor::prepareNextExecution() {
 			states.end(); it != ie; ++it) {
 		delete *it;
 	}
+
+	Trace* trace = listenerService->getRuntimeDataManager()->getCurrentTrace();
+//	std::vector<Event*>& path = trace->path;
+//	for (std::vector<Event*>::iterator it = path.begin(), ie = path.end(); it != ie; it++) {
+//		delete (*it);
+//	}
+	delete trace;
+	trace = NULL;
 }
 
 void Executor::getNewPrefix() {
@@ -3799,7 +3808,7 @@ void Executor::printInstrcution(ExecutionState &state, KInstruction* ki) {
 	}
 
 	out.close();
-	if (prefix && prefix->current() + 1 == prefix->end()) {
+	/*if (prefix && prefix->current() + 1 == prefix->end()) {
 		inst->print(errs());
 		Event* event = *prefix->current();
 		ref<Expr> param = eval(ki, 0, state).value;
@@ -3809,7 +3818,7 @@ void Executor::printInstrcution(ExecutionState &state, KInstruction* ki) {
 		} else {
 			llvm::errs() << "\n前缀未被取反\n";
 		}
-	}
+	}*/
 }
 
 void Executor::printPrefix() {

@@ -331,7 +331,8 @@ void InputGenListener::afterRunMethodAsMain(ExecutionState& state) {
 //	encode = new Encode(rdManager);
 	deleteMPFromThisExe();
 	if (executor->execStatus == Executor::SUCCESS &&
-			rdManager->isCurrentTraceUntestedForDU())
+			executor->executionNum < 300/*&&
+			rdManager->isCurrentTraceUntestedForDU()*/)
 		inputGen(InputGenListener::DFS);
 //	if (rdManager->charInputPrefix.size() == 0) {
 //		executor->setIsFinished();
@@ -488,7 +489,7 @@ void InputGenListener::getSolveResult(std::vector<ref<Expr> >&
 	KQuery2Z3 * kq = new KQuery2Z3(z3_ctx);
 	std::vector<ref<Expr> >::iterator it =
 			constraints.begin(), ie = constraints.end();
-	std::cerr << "constraints in get solve size : " << constraints.size() << std::endl;
+//	std::cerr << "constraints in get solve size : " << constraints.size() << std::endl;
 	z3_solver.push();
 	while (it != (ie - 1)) {
 		z3::expr res = kq->getZ3Expr((*it));
@@ -497,7 +498,7 @@ void InputGenListener::getSolveResult(std::vector<ref<Expr> >&
 	}
 	z3::expr resTemp = kq->getZ3Expr((*it));
 	z3_solver.add(!resTemp);
-	std::cerr << z3_solver << std::endl;
+//	std::cerr << z3_solver << std::endl;
 	check_result result = z3_solver.check();
 	if (result == z3::sat) {
 		std::cerr << "satisfied the constraints in get solve result.\n";
@@ -642,8 +643,8 @@ void InputGenListener::makeBasicArgvConstraint(
 		constraints.push_back(rhs);
 	}
 
-	std::cerr << "argv symbolic size : " << constraints.size() << std::endl;
-	std::cerr << "size int argv : " << executor->intArgvConstraints.size() << std::endl;
+//	std::cerr << "argv symbolic size : " << constraints.size() << std::endl;
+//	std::cerr << "size int argv : " << executor->intArgvConstraints.size() << std::endl;
 	std::set<ref<Expr> >::iterator sit = executor->intArgvConstraints.begin(),
 			sie = executor->intArgvConstraints.end();
 	for (; sit != sie; sit++) {

@@ -623,11 +623,11 @@ namespace klee {
 //			executor->isFinished = true;
 			executor->execStatus = Executor::SUCCESS;
 //			return;
-		} else if (!rdManager.isCurrentTraceUntested()) {
+		} /*else if (!rdManager.isCurrentTraceUntested()) {
 			rdManager.getCurrentTrace()->traceType = Trace::REDUNDANT;
 			llvm::errs() << "\n######################本条路径为旧路径####################\n";
 			rdManager.getExplicitDU();
-		} else {
+		} */else {
 			llvm::errs() << "\n######################本条路径为新路径####################\n";
 			rdManager.getCurrentTrace()->traceType = Trace::UNIQUE;
 			rdManager.getExplicitDU();
@@ -732,15 +732,19 @@ namespace klee {
 //							llvm::errs() << "RUNNABLE SwitchThread id : " << SwitchThread->threadId;
 							Event* item = trace->createEvent(SwitchThread->threadId, ki, Event::NORMAL);
 							path.push_back(item);
+							trace->unique2Tid.push_back(std::make_pair(++(trace->unique), item->threadId));
 							stringstream ss;
 							ss << "Trace" << trace->Id << "#" << item->eventId;
-							Prefix* prefix = new Prefix(path, trace->createThreadPoint, ss.str(), state.ContextSwitch + 1);
+							Prefix* prefix = new Prefix(trace->unique2Tid, trace->unique2Crt,
+									ss.str(), state.ContextSwitch + 1);
 //							llvm::errs() << "rdManager.addScheduleSet(prefix) state.ContextSwitch + 1　:　" << ss.str() << "\n";
 							rdManager.addScheduleSet(prefix);
 
 
 							rdManager.addcharInputPrefixSet(prefix, vecArgs);
 							rdManager.addintInputPrefixSet(prefix, rdManager.intArgv);
+							trace->unique--;
+							trace->unique2Tid.pop_back();
 							path.pop_back();
 						}
 					}
@@ -761,15 +765,19 @@ namespace klee {
 							KInstruction *ki = SwitchThread->pc;
 							Event* item = trace->createEvent(SwitchThread->threadId, ki, Event::NORMAL);
 							path.push_back(item);
+							trace->unique2Tid.push_back(std::make_pair(++(trace->unique), item->threadId));
 							stringstream ss;
 							ss << "Trace" << trace->Id << "#" << item->eventId;
-							Prefix* prefix = new Prefix(path, trace->createThreadPoint, ss.str(), state.ContextSwitch);
+							Prefix* prefix = new Prefix(trace->unique2Tid, trace->unique2Crt,
+									ss.str(), state.ContextSwitch);
 //							llvm::errs() << "rdManager.addScheduleSet(prefix) state.ContextSwitch　:　" << ss.str() << "\n";
 							rdManager.addScheduleSet(prefix);
 
 
 							rdManager.addcharInputPrefixSet(prefix, vecArgs);
 							rdManager.addintInputPrefixSet(prefix, rdManager.intArgv);
+							trace->unique--;
+							trace->unique2Tid.pop_back();
 							path.pop_back();
 						}
 					}

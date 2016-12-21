@@ -58,9 +58,9 @@ namespace klee {
 	}
 
 	RuntimeDataManager::~RuntimeDataManager() {
-		for (vector<Trace*>::iterator ti = traceList.begin(), te = traceList.end(); ti != te; ti++) {
-			delete *ti;
-		}
+//		for (vector<Trace*>::iterator ti = traceList.begin(), te = traceList.end(); ti != te; ti++) {
+//			delete *ti;
+//		}
 		string ErrorInfo;
 		raw_fd_ostream out_to_file("./output_info/statics.txt", ErrorInfo, sys::fs::F_Append);
 		stringstream ss;
