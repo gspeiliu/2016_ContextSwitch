@@ -310,6 +310,7 @@ Thread* RandomThreadScheduler::selectCurrentItem() {
 }
 
 Thread* RandomThreadScheduler::selectNextItem() {
+	srand( (unsigned)time( NULL ));
 	for(int i = random()%itemNum(); i > 0; i--){
 		reSchedule();
 	}

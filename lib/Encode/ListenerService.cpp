@@ -30,13 +30,15 @@
 #include <iterator>
 #include <fstream>
 
+const int maxStep = 8;
+
 namespace klee {
 
 	ListenerService::ListenerService(Executor* executor) {
 		encode = NULL;
 		dtam = NULL;
 		cost = 0;
-
+		step = 0;
 	}
 
 	ListenerService::~ListenerService() {
@@ -580,6 +582,7 @@ namespace klee {
 
 	void ListenerService::startControl(Executor* executor) {
 
+		rdManager.moduleID = executor->getModuleID();
 		executor->executionNum++;
 
 		BitcodeListener* PSOlistener = new PSOListener(executor, &rdManager);
@@ -647,9 +650,9 @@ namespace klee {
 //			}
 //			rdManager.allGlobal += allGlobal;
 
-//			gettimeofday(&finish, NULL);
-//			cost = (double) (finish.tv_sec * 1000000UL + finish.tv_usec - start.tv_sec * 1000000UL - start.tv_usec) / 1000000UL;
-//			rdManager.runningCost += cost;
+			gettimeofday(&finish, NULL);
+			cost = (double) (finish.tv_sec * 1000000UL + finish.tv_usec - start.tv_sec * 1000000UL - start.tv_usec) / 1000000UL;
+			rdManager.runningCost += cost;
 //			rdManager.allDTAMSerialCost.push_back(cost);
 //
 //			gettimeofday(&start, NULL);
@@ -682,7 +685,11 @@ namespace klee {
 
 		}
 
+		if (executor->getTriggerAssert()) {
+			rdManager.trigger = true;
+		}
 		executor->getNewPrefix();
+
 
 		for (std::vector<BitcodeListener*>::iterator bit = bitcodeListeners.begin(), bie = bitcodeListeners.end(); bit != bie; ++bit) {
 //			delete *bit;
@@ -712,6 +719,9 @@ namespace klee {
 			vecArgs.push_back(std::string(rdManager.argvOfMain[tt++]));
 		}
 
+		if (state.isGlobal) {
+			setStep(0);
+		}
 //		llvm::errs() << "ContextSwitch thread id : " << thread->threadId << "  ";
 //		ki->inst->dump();
 
@@ -719,76 +729,80 @@ namespace klee {
 //		llvm::errs() << "(!(executor->prefix && !executor->prefix->isFinished())) : " << (!(executor->prefix && !executor->prefix->isFinished())) << "\n";
 //		llvm::errs() << "state.isGlobal : " << state.isGlobal << "\n";
 
-		switch (thread->threadState) {
-			case Thread::RUNNABLE: {
-				if (state.ContextSwitch < 2 && (!(executor->prefix && !executor->prefix->isFinished())) && state.isGlobal) {
-					std::list<Thread*>::iterator it = queue.begin();
-					std::list<Thread*>::iterator ie = queue.end();
-					if (queue.size() > 1) {
-						it++;
-						for (; it != ie; it++) {
-							SwitchThread = *it;
-							KInstruction *ki = SwitchThread->pc;
-//							llvm::errs() << "RUNNABLE SwitchThread id : " << SwitchThread->threadId;
-							Event* item = trace->createEvent(SwitchThread->threadId, ki, Event::NORMAL);
-							path.push_back(item);
-							trace->unique2Tid.push_back(std::make_pair(++(trace->unique), item->threadId));
-							stringstream ss;
-							ss << "Trace" << trace->Id << "#" << item->eventId;
-							Prefix* prefix = new Prefix(trace->unique2Tid, trace->unique2Crt,
-									ss.str(), state.ContextSwitch + 1);
-//							llvm::errs() << "rdManager.addScheduleSet(prefix) state.ContextSwitch + 1　:　" << ss.str() << "\n";
-							rdManager.addScheduleSet(prefix);
+//		if (getStep() < maxStep) {
+			switch (thread->threadState) {
+				case Thread::RUNNABLE: {
+					if (state.ContextSwitch < 2 && (!(executor->prefix && !executor->prefix->isFinished())) && state.isGlobal) {
+						std::list<Thread*>::iterator it = queue.begin();
+						std::list<Thread*>::iterator ie = queue.end();
+						if (queue.size() > 1) {
+							it++;
+							for (; it != ie; it++) {
+								SwitchThread = *it;
+								KInstruction *ki = SwitchThread->pc;
+	//							llvm::errs() << "RUNNABLE SwitchThread id : " << SwitchThread->threadId;
+								Event* item = trace->createEvent(SwitchThread->threadId, ki, Event::NORMAL);
+								path.push_back(item);
+								trace->unique2Tid.push_back(std::make_pair(++(trace->unique), item->threadId));
+								stringstream ss;
+								ss << "Trace" << trace->Id << "#" << item->eventId;
+								Prefix* prefix = new Prefix(trace->unique2Tid, trace->unique2Crt,
+										ss.str(), state.ContextSwitch + 1);
+	//							llvm::errs() << "rdManager.addScheduleSet(prefix) state.ContextSwitch + 1　:　" << ss.str() << "\n";
+								rdManager.addScheduleSet(prefix);
 
 
-							rdManager.addcharInputPrefixSet(prefix, vecArgs);
-							rdManager.addintInputPrefixSet(prefix, rdManager.intArgv);
-							trace->unique--;
-							trace->unique2Tid.pop_back();
-							path.pop_back();
+								rdManager.addcharInputPrefixSet(prefix, vecArgs);
+								rdManager.addintInputPrefixSet(prefix, rdManager.intArgv);
+								trace->unique--;
+								trace->unique2Tid.pop_back();
+								path.pop_back();
+							}
 						}
 					}
+					incStep();
+					break;
 				}
-				break;
-			}
 
-			case Thread::MUTEX_BLOCKED: {
-				//maybe not need;
-				if (state.ContextSwitch < 2 && !(executor->prefix && !executor->prefix->isFinished()) && state.isGlobal) {
-					std::list<Thread*>::iterator it = queue.begin();
-					std::list<Thread*>::iterator ie = queue.end();
-					if (queue.size() > 1) {
-						it++;
-						for (; it != ie; it++) {
-							SwitchThread = *it;
-//							llvm::errs() << "MUTEX_BLOCKED SwitchThread id : " << SwitchThread->threadId << "\n";
-							KInstruction *ki = SwitchThread->pc;
-							Event* item = trace->createEvent(SwitchThread->threadId, ki, Event::NORMAL);
-							path.push_back(item);
-							trace->unique2Tid.push_back(std::make_pair(++(trace->unique), item->threadId));
-							stringstream ss;
-							ss << "Trace" << trace->Id << "#" << item->eventId;
-							Prefix* prefix = new Prefix(trace->unique2Tid, trace->unique2Crt,
-									ss.str(), state.ContextSwitch);
-//							llvm::errs() << "rdManager.addScheduleSet(prefix) state.ContextSwitch　:　" << ss.str() << "\n";
-							rdManager.addScheduleSet(prefix);
+				case Thread::MUTEX_BLOCKED: {
+					//maybe not need;
+					if (state.ContextSwitch < 2 && !(executor->prefix && !executor->prefix->isFinished()) && state.isGlobal) {
+						std::list<Thread*>::iterator it = queue.begin();
+						std::list<Thread*>::iterator ie = queue.end();
+						if (queue.size() > 1) {
+							it++;
+							for (; it != ie; it++) {
+								SwitchThread = *it;
+	//							llvm::errs() << "MUTEX_BLOCKED SwitchThread id : " << SwitchThread->threadId << "\n";
+								KInstruction *ki = SwitchThread->pc;
+								Event* item = trace->createEvent(SwitchThread->threadId, ki, Event::NORMAL);
+								path.push_back(item);
+								trace->unique2Tid.push_back(std::make_pair(++(trace->unique), item->threadId));
+								stringstream ss;
+								ss << "Trace" << trace->Id << "#" << item->eventId;
+								Prefix* prefix = new Prefix(trace->unique2Tid, trace->unique2Crt,
+										ss.str(), state.ContextSwitch);
+	//							llvm::errs() << "rdManager.addScheduleSet(prefix) state.ContextSwitch　:　" << ss.str() << "\n";
+								rdManager.addScheduleSet(prefix);
 
 
-							rdManager.addcharInputPrefixSet(prefix, vecArgs);
-							rdManager.addintInputPrefixSet(prefix, rdManager.intArgv);
-							trace->unique--;
-							trace->unique2Tid.pop_back();
-							path.pop_back();
+								rdManager.addcharInputPrefixSet(prefix, vecArgs);
+								rdManager.addintInputPrefixSet(prefix, rdManager.intArgv);
+								trace->unique--;
+								trace->unique2Tid.pop_back();
+								path.pop_back();
+							}
 						}
 					}
+					incStep();
+					break;
 				}
-				break;
-			}
 
-			default: {
-				break;
+				default: {
+					break;
+				}
 			}
-		}
+//		}
 		if(state.isGlobal){
 			state.isGlobal = false;
 		}

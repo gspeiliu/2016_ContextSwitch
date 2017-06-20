@@ -25,8 +25,7 @@ namespace klee {
 			EventType eventType) :
 			threadId(threadId), eventId(eventId), eventName(eventName), inst(inst), name(varName), globalName(globalName), eventType(
 					eventType), latestWriteEventInSameThread(NULL), isGlobal(false), isEventRelatedToBranch(false), isConditionInst(false), brCondition(
-					false), isFunctionWithSourceCode(true), calledFunction(
-			NULL) {
+					false), isFunctionWithSourceCode(true), calledFunction(NULL), source_name("") {
 		threadEventId = 0;
 	}
 

@@ -26,6 +26,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/ADT/Twine.h"
 
+#include <iostream>
+
 #include <errno.h>
 
 using namespace llvm;
@@ -237,7 +239,7 @@ bool SpecialFunctionHandler::handle(ExecutionState &state,
       executor.terminateStateOnExecError(state, 
                                          "expected return value from void special function");
     } else {
-      (this->*h)(state, target, arguments);
+    	(this->*h)(state, target, arguments);
     }
     return true;
   } else {
@@ -324,6 +326,7 @@ void SpecialFunctionHandler::handleAssert(ExecutionState &state,
                                           KInstruction *target,
                                           std::vector<ref<Expr> > &arguments) {
   assert(arguments.size()==3 && "invalid number of arguments to _assert");
+  std::cerr << "handle assert" << std::endl;
   executor.terminateStateOnError(state,
 				 "ASSERTION FAIL: " + readStringAtAddress(state, arguments[0]),
 				 "assert.err");
@@ -333,6 +336,8 @@ void SpecialFunctionHandler::handleAssertFail(ExecutionState &state,
                                               KInstruction *target,
                                               std::vector<ref<Expr> > &arguments) {
   assert(arguments.size()==4 && "invalid number of arguments to __assert_fail");
+  executor.setTriggerAssert(true);
+  std::cerr << "handle assert fail" << std::endl;
   executor.terminateStateOnError(state,
 				 "ASSERTION FAIL: " + readStringAtAddress(state, arguments[0]),
 				 "assert.err");

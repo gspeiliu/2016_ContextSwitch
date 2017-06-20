@@ -434,8 +434,10 @@ namespace klee {
 							if (inst->getOperand(0)->getValueID() == Value::InstructionVal + Instruction::GetElementPtr) {
 
 							}
+							item->source_name = li->getOperand(0)->getName().str();
 						} else {
 							llvm::errs() << "Load address = " << realAddress->getZExtValue() << "\n";
+							li->dump();
 							assert(0 && "load resolve unsuccess");
 						}
 					} else {
@@ -489,6 +491,7 @@ namespace klee {
 #endif
 							trace->insertWriteSet(varName, item);
 						}
+						item->source_name = inst->getOperand(1)->getName().str();
 					} else {
 						llvm::errs() << "Store address = " << realAddress->getZExtValue() << "\n";
 						assert(0 && "store resolve unsuccess");

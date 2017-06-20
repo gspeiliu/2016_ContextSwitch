@@ -45,6 +45,7 @@ namespace klee {
 			std::vector<unsigned> vectorClock;
 			std::vector<ref<klee::Expr> > instParameter;
 			std::vector<ref<klee::Expr> > relatedSymbolicExpr;
+			std::string source_name;
 
 			Event();
 			Event(unsigned threadId, unsigned eventId, std::string eventName, KInstruction* inst, std::string globalVarName,

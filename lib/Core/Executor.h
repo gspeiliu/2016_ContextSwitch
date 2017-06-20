@@ -28,6 +28,7 @@
 #include "klee/util/ArrayCache.h"
 
 #include "llvm/Support/CallSite.h"
+#include "llvm/IR/Module.h"
 
 #include <vector>
 #include <string>
@@ -206,6 +207,8 @@ namespace klee {
 			bool isFinished; // whether the verification is finished
 
 			Prefix* prefix; // prefix used to guide execution
+
+			bool triggerAssert;
 
 			typedef struct binTree {
 				binTree():next(0), size(0), isSwitch(0),brTrue(0), currEvent(NULL) {}
@@ -520,6 +523,17 @@ namespace klee {
 			void printPrefix();
 
 			void freeBinTree(Executor::BinTree *head);
+
+			void setTriggerAssert(bool trigger) {
+				triggerAssert = trigger;
+			}
+
+			bool getTriggerAssert() {
+				return triggerAssert;
+			}
+			std::string getModuleID() {
+				return kmodule->module->getModuleIdentifier();
+			}
 	};
 
 } // End klee namespace

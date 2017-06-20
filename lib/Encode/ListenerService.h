@@ -31,6 +31,8 @@ namespace klee {
 			struct timeval start, finish;
 			double cost;
 
+			int step;
+
 		public:
 			ListenerService(Executor* executor);
 			~ListenerService();
@@ -57,6 +59,16 @@ namespace klee {
 
 			bool getMPFromFile();
 			void changeInputAndPrefix(int argc, char** argv, Executor* executor);
+
+			void setStep(int x = 0) {
+				step = x;
+			}
+			void incStep() {
+				step++;
+			}
+			int getStep() {
+				return step;
+			}
 
 	};
 

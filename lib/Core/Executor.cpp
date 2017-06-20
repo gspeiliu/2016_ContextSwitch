@@ -101,6 +101,9 @@
 using namespace llvm;
 using namespace klee;
 
+const double EPSILON = 0.000001;
+const double TotalRunTime = 3600.0;
+
 namespace {
 	cl::opt<bool> DumpStatesOnHalt("dump-states-on-halt", cl::init(true),
 			cl::desc("Dump test cases for all active states on exit (default=on)"));
@@ -220,7 +223,7 @@ Executor::Executor(const InterpreterOptions &opts, InterpreterHandler *ih) :
 				0), atMemoryLimit(false), inhibitForking(false), haltExecution(false), ivcEnabled(false), coreSolverTimeout(
 				MaxCoreSolverTime != 0 && MaxInstructionTime != 0 ?
 						std::min(MaxCoreSolverTime, MaxInstructionTime) : std::max(MaxCoreSolverTime, MaxInstructionTime)), debugInstFile(
-				0), debugLogBuffer(debugBufferString), isFinished(false), prefix(NULL), headSentinel(NULL), currTreeNode(NULL), executionNum(0), execStatus(SUCCESS) {
+				0), debugLogBuffer(debugBufferString), isFinished(false), prefix(NULL), triggerAssert(false), headSentinel(NULL), currTreeNode(NULL), executionNum(0), execStatus(SUCCESS) {
 
 	if (coreSolverTimeout)
 		UseForkedCoreSolver = true;
@@ -2567,7 +2570,7 @@ void Executor::run(ExecutionState &initialState) {
 	initTimers();
 
 	states.insert(&initialState);
-	std::cerr << "states size = " << states.size() << std::endl;
+//	std::cerr << "states size = " << states.size() << std::endl;
 
 	if (usingSeeds) {
 		std::vector<SeedInfo> &v = seedMap[&initialState];
@@ -2940,8 +2943,9 @@ static std::set<std::string> okExternals(okExternalsList, okExternalsList + (siz
 
 void Executor::callExternalFunction(ExecutionState &state, KInstruction *target, Function *function, std::vector<ref<Expr> > &arguments) {
 	// check if specialFunctionHandler wants it
-	if (specialFunctionHandler->handle(state, function, target, arguments))
+	if (specialFunctionHandler->handle(state, function, target, arguments)) {
 		return;
+	}
 
 	if (NoExternals && !okExternals.count(function->getName())) {
 		llvm::errs() << "KLEE:ERROR: Calling not-OK external function : " << function->getName().str() << "\n";
@@ -3709,35 +3713,45 @@ void Executor::getNewPrefix() {
 	//获取新的前缀
 	Prefix* prefix = listenerService->getRuntimeDataManager()->getNextPrefix();
 	//Prefix* prefix = NULL;
-	if (executionNum > 4000) {
-		isFinished = true;
-		int prefixSize = listenerService->getRuntimeDataManager()->charInputPrefixSet.size();
+//	if (triggerAssert) {
+//		isFinished = true;
+//		std::cerr << "finish is true? triggerAssert\n";
+//	} else {
+		double runTime = listenerService->getRuntimeDataManager()->runningCost;
+		std::cerr << "runtime : " << runTime << std::endl;
+		if (runTime > TotalRunTime || executionNum > 505) {
+//		if (executionNum > 10000) {
+			isFinished = true;
+			std::cerr << "finish is true? ruintime\n";
+			int prefixSize = listenerService->getRuntimeDataManager()->charInputPrefixSet.size();
 
-		while (prefixSize >= 0) {
-			if (prefix) {
-				delete prefix;
-				prefix = NULL;
+			while (prefixSize >= 0) {
+				if (prefix) {
+					delete prefix;
+					prefix = NULL;
+				}
+				prefix = listenerService->getRuntimeDataManager()->getNextPrefix();
+				prefixSize--;
 			}
-			prefix = listenerService->getRuntimeDataManager()->getNextPrefix();
-			prefixSize--;
-		}
-	} else {
-		if (prefix) {
-			delete this->prefix;
-			this->prefix = prefix;
-			isFinished = false;
 		} else {
-			if (listenerService->getRuntimeDataManager()->charInputPrefixSet.size() == 0) {
-				isFinished = true;
-			} else {
-				this->prefix = NULL;
+			if (prefix) {
+				delete this->prefix;
+				this->prefix = prefix;
 				isFinished = false;
-			}
+			} else {
+				if (listenerService->getRuntimeDataManager()->charInputPrefixSet.size() == 0) {
+					isFinished = true;
+					std::cerr << "finish is true? size\n";
+				} else {
+					this->prefix = NULL;
+					isFinished = false;
+				}
 #if PRINT_RUNTIMEINFO
 	printPrefix();
 #endif
+			}
 		}
-	}
+//	}
 }
 
 /**

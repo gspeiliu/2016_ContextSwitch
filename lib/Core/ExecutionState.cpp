@@ -62,7 +62,7 @@ ExecutionState::ExecutionState(KFunction *kf)
     ptreeNode(0) {
 
 	condManager.setMutexManager(&mutexManager);
-	threadScheduler = getThreadSchedulerByType(ThreadScheduler::FIFS);
+	threadScheduler = getThreadSchedulerByType(ThreadScheduler::Random);
 	Thread* thread = new Thread(getNextThreadId(), NULL, kf, &addressSpace);
 	currentStack = thread->stack;
 	threadList.addThread(thread);

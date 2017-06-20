@@ -14,6 +14,7 @@
 #include <sstream>
 #include <utility>
 #include <fstream>
+#include <unistd.h>
 
 using namespace std;
 using namespace llvm;
@@ -44,6 +45,8 @@ namespace klee {
 		DTAMhybridCost = 0;
 		PTSCost = 0;
 
+		trigger = false;
+
 		DUInSameThread = 0;
 		DUInDiffThread = 0;
 		DUFromInit = 0;
@@ -51,6 +54,8 @@ namespace klee {
 		argvOfMain = NULL;
 		argcOfMain = 0;
 		allMPSet = 0;
+
+		moduleID = "";
 
 		system("rm -rf ./output_info");
 		system("mkdir ./output_info");
@@ -149,10 +154,57 @@ namespace klee {
 		ss << "DUInDiffThread:" << DUInDiffThread << "\n";
 		ss << "DUFromInit:" << DUFromInit << "\n";
 
+		if (trigger) {
+			ss << "triggerOrNot:" << "trigger" << "\n";
+		} else {
+			ss << "triggerOrNot:" << "notTrigger" << "\n";
+		}
+
 		ss << "\n";
 
 		out_to_file << ss.str();
 		out_to_file.close();
+
+		char str[500];
+		vector<string> foldName;
+		std::string fold = "";
+		getcwd(str, sizeof(str));
+		std::cerr << "full name : " << str << std::endl;
+		const char *sep = "/";
+		char *ptr = strtok(str, sep);
+		std::string st = ptr;
+
+		while (ptr) {
+			fold = ptr;
+			foldName.push_back(fold);
+			ptr = strtok(NULL, sep);
+		}
+
+		std::cerr << "fold name : " << foldName.at(foldName.size() - 1) << std::endl;
+		string fileName = "./../../DetailedDU/CS/cs2/" + foldName.at(foldName.size() - 1) + ".txt";
+
+//		std::set<std::pair<int, int> > ReadFromInit;
+//		std::set<std::pair<int, int> > sameThreadDUSet;
+//		std::set<std::pair<int, int> > diffThreadDUSet;
+		raw_fd_ostream out_to_du_file(fileName.c_str(), ErrorInfo, sys::fs::F_Append);
+		stringstream ss_du;
+		ss_du << "@@ReadFromInit\n";
+		for (std::set<std::pair<std::string, std::string> >::iterator it = ReadFromInit.begin(),
+						ie = ReadFromInit.end(); it != ie; it++) {
+					ss_du << it->first << " " << it->second << "\n";
+		}
+		ss_du << "@@SameThreadDUSet\n";
+		for (std::set<std::pair<std::string, std::string> >::iterator it = sameThreadDUSet.begin(),
+				ie = sameThreadDUSet.end(); it != ie; it++) {
+			ss_du << it->first << " " << it->second << "\n";
+		}
+		ss_du << "@@DiffThreadDUSet\n";
+		for (std::set<std::pair<std::string, std::string> >::iterator it = diffThreadDUSet.begin(),
+						ie = diffThreadDUSet.end(); it != ie; it++) {
+					ss_du << it->first << " " << it->second << "\n";
+		}
+		out_to_du_file << ss_du.str();
+		out_to_du_file.close();
 	}
 
 	Trace* RuntimeDataManager::createNewTrace(unsigned traceId) {
@@ -248,9 +300,11 @@ namespace klee {
 
 					for (; it != readSet.end();) {
 						if (path[i]->name == (*it)->name) {
-							int asRdLine = (*it)->inst->info->assemblyLine;
-							int asWrtLine = path[i]->inst->info->assemblyLine;
-							std::pair<int, int> P(asWrtLine, asRdLine);
+							int asRdLine = (*it)->inst->info->line;
+							int asWrtLine = path[i]->inst->info->line;
+//							std::pair<int, int> P(asWrtLine, asRdLine);
+							std::pair<std::string, std::string> P(path[i]->source_name + "_"
+									+ int_to_string(asWrtLine), int_to_string(asRdLine));
 //							if (DUPair.find(P) == DUPair.end()) {
 //								DUPair.insert(P);
 								if (path[i]->threadId != (*it)->threadId &&
@@ -274,8 +328,10 @@ namespace klee {
 
 		for (std::set<Event*>::iterator it = readSet.begin(),
 				ie = readSet.end(); it != ie; it++) {
-			int asRdLine = (*it)->inst->info->assemblyLine;
-			std::pair<int, int> P(-1, asRdLine);
+			int asRdLine = (*it)->inst->info->line;
+//			std::pair<int, int> P(-1, asRdLine);
+			std::pair<std::string, std::string> P(
+					(*it)->source_name + "_-1", int_to_string(asRdLine));
 
 			if (ReadFromInit.find(P) == ReadFromInit.end()) {
 				ReadFromInit.insert(P);

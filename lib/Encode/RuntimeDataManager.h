@@ -49,15 +49,17 @@ class RuntimeDataManager {
 		double DTAMhybridCost;
 		double PTSCost;
 
+		bool trigger;
+
 		int DUInSameThread;
 		int DUInDiffThread;
 		int DUFromInit;
 
 
-		std::set<std::pair<int, int> > DUPair;
-		std::set<std::pair<int, int> > ReadFromInit;
-		std::set<std::pair<int, int> > sameThreadDUSet;
-		std::set<std::pair<int, int> > diffThreadDUSet;
+		std::set<std::pair<std::string, std::string> > DUPair;
+		std::set<std::pair<std::string, std::string> > ReadFromInit;
+		std::set<std::pair<std::string, std::string> > sameThreadDUSet;
+		std::set<std::pair<std::string, std::string> > diffThreadDUSet;
 
 
 		std::map<std::string, unsigned> intArgv;
@@ -69,6 +71,7 @@ class RuntimeDataManager {
 		int argcOfMain;
 		unsigned allMPSet;
 		std::set<std::string> inputVarSet;
+		std::string moduleID;
 
 		std::vector<double> allDTAMCost;
 		std::vector<double> allDTAMSerialCost;
@@ -116,6 +119,12 @@ class RuntimeDataManager {
 
 		bool isCurrentTraceUntestedForDU();
 		bool isMPCouldConstructed(std::string str);
+
+		std::string int_to_string(int n) {
+			std::stringstream ss;
+			ss << n;
+			return ss.str();
+		}
 
 };
 
